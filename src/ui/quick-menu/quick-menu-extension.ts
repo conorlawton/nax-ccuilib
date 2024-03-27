@@ -145,7 +145,7 @@ ig.module("nax-ccuilib.ui.quick-menu.quick-menu-extension")
 				}
 			},
 			createButton(widget) {
-				const button = new sc.RingMenuButton(widget.id ?? -1, 0, 0);
+				const button = new sc.RingMenuButton(widget.id ?? 0, 0, 0);
 				button.title = widget.title ?? ig.lang.get(`sc.gui.quick-menu.title.${widget.name}`) ?? widget.name;
 				button.data = widget.description ?? ig.lang.get(`sc.gui.quick-menu.description.${widget.name}`) ?? widget.name;
 
@@ -155,6 +155,7 @@ ig.module("nax-ccuilib.ui.quick-menu.quick-menu-extension")
 
 				widget.additionalInit && widget.additionalInit(button);
 				button.keepPressed = !!widget.keepPressed;
+				button.isAToggle = !!widget.toggle;
 
 				return button;
 			},
@@ -173,35 +174,35 @@ ig.module("nax-ccuilib.ui.quick-menu.quick-menu-extension")
 					return;
 				}
 				if (this.buttons) for (const button of this.buttons) this.removeChildGui(button);
-				this.buttons = [];
 				for (let i = 0; i < this.buttongroup.elements[0].length; i++) this.buttongroup.removeFocusGui(0, i);
 
-				for (const id of [...possibleIds, ...(this.editModeOn ? this.possibleSelGridIds : [])]) {
-					const widgetName = nax.ccuilib.QuickRingMenuWidgets.ringConfiguration[id];
-					if (!widgetName) continue;
-					const widget = nax.ccuilib.QuickRingMenuWidgets.widgets[widgetName];
-					if (!widget) {
-						if (initAll) delete nax.ccuilib.QuickRingMenuWidgets.ringConfiguration[id];
-						continue;
-					}
-					const button = this.createButton(widget);
-					this.setButtonId(button, id);
-					this.addChildGui(button);
-					this.buttons.push(button);
-				}
-
-				const forcePositions: { id: string; index: number }[] = [
-					{ id: "11_items", index: 0 },
-					{ id: "11_party", index: 2 },
-				];
-				for (const conf of forcePositions) {
-					const oldI = this.buttons.findIndex(b => nax.ccuilib.QuickRingMenuWidgets.ringConfiguration[b.ringId] == conf.id);
-					if (oldI == -1 || oldI == conf.index) continue;
-					[this.buttons[oldI], this.buttons[conf.index]] = [this.buttons[conf.index], this.buttons[oldI]];
-				}
+				this.buttons = possibleIds
+					.concat(this.editModeOn ? this.possibleSelGridIds : [])
+					.map(id => ({
+						id,
+						widgetName: nax.ccuilib.QuickRingMenuWidgets.ringConfiguration[id],
+					}))
+					.filter(o => o.widgetName)
+					.map(o =>
+						Object.assign(o, {
+							widget: nax.ccuilib.QuickRingMenuWidgets.widgets[o.widgetName],
+						})
+					)
+					.filter(o => {
+						if (!o.widget) {
+							delete nax.ccuilib.QuickRingMenuWidgets.ringConfiguration[o.id];
+							return false;
+						}
+						return true;
+					})
+					.map(({ id, widget }) => {
+						const button = this.createButton(widget);
+						this.setButtonId(button, id);
+						this.addChildGui(button);
+						return button;
+					});
 
 				this.buttongroup.setButtons(...this.buttons);
-				console.log(this.buttons.map(b => nax.ccuilib.QuickRingMenuWidgets.ringConfiguration[b.ringId]));
 			},
 			_createRingButton() {
 				throw new Error("CCUILib: This way of creating quick menu buttons is not supported.");
@@ -246,20 +247,41 @@ ig.module("nax-ccuilib.ui.quick-menu.quick-menu-extension")
 				}
 				anyHidden && this.createButtons(true);
 			},
+			_setStateActive(state) {
+				if (state == sc.QUICK_MENU_STATE.NONE) {
+					this.buttons.forEach(b => b.show(0, true));
+					if (sc.quickmodel.isQuickNone() && !ig.input.mouseGuiActive) lastFocusedButton?.focusGained();
+					return;
+				}
+				this.buttons.forEach(b => b.deactivate());
+				lastFocusedButton?.activate();
+			},
 		});
 
 		let focusedButton: sc.RingMenuButton | undefined;
+		let lastFocusedButton: sc.RingMenuButton | undefined;
 		sc.RingMenuButton.inject({
 			init(state, endPosX, endPosY) {
 				this.parent(state, endPosX, endPosY);
 			},
+			getLocalStorageToggleId() {
+				return `ccuilib-quickmenuwidget-${getWidgetFromId(this.ringId).name}`;
+			},
+			isToggleOn() {
+				return localStorage.getItem(this.getLocalStorageToggleId()) == "true";
+			},
 			invokeButtonPress() {
-				this.parent();
-				if (this.keepPressed) this.isOn = !this.isOn;
+				ig.FocusGui.prototype.invokeButtonPress.call(this);
+				if (this.isAToggle) {
+					const value = (!this.isToggleOn()).toString();
+					localStorage.setItem(this.getLocalStorageToggleId(), value);
+					sc.BUTTON_SOUND[this.isToggleOn() ? "toggle_on" : "toggle_off"].play();
+				} else sc.BUTTON_SOUND.submit.play();
 			},
 			focusGained() {
 				this.parent();
 				focusedButton = this;
+				lastFocusedButton = this;
 				const widget = getWidgetFromId(this.ringId);
 				if (!widget) return;
 				sc.QuickRingMenu.instance.infoBar.setText(`${widget.title}${widget.description ? ` - ${widget.description}` : ""}`);
@@ -275,10 +297,9 @@ ig.module("nax-ccuilib.ui.quick-menu.quick-menu-extension")
 				/* stolen */
 				renderer.addGfx(this.gfx, 0, 0, 400, 304, 32, 32);
 				if (this.active) {
-					if (this.focus) {
+					if ((!this.focus && this.pressed) || this.isToggleOn()) renderer.addGfx(this.gfx, 0, 0, 400, 336, 32, 32);
+					else if (this.focus) {
 						renderer.addGfx(this.gfx, 0, 0, 400, 336, 32, 32).setAlpha(this.alpha);
-					} else {
-						if (this.pressed || this.isOn) renderer.addGfx(this.gfx, 0, 0, 400, 336, 32, 32);
 					}
 				} else {
 					if (this.focus) renderer.addGfx(this.gfx, 0, 0, 400, 272, 32, 32);

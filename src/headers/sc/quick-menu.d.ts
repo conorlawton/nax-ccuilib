@@ -17,7 +17,10 @@ declare global {
 		interface RingMenuButton {
 			title: string;
 			ringId: number;
-			isOn?: boolean;
+			isAToggle?: boolean;
+
+            getLocalStorageToggleId(this: this): string
+            isToggleOn(this: this): boolean
 		}
 
 		interface QuickRingMenu {

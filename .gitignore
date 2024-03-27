@@ -5,3 +5,4 @@ dist
 build/
 *.png~
 package-lock.json
+esbuild-post.js

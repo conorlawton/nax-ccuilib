@@ -13,6 +13,7 @@ ig.module("nax-ccuilib.ui.quick-menu.default-widgets").defines(() => {
 		name: "items",
 		title: "Items",
 		id: sc.QUICK_MENU_STATE.ITEMS,
+		keepPressed: true,
 		image: getImageDrawConfig(sc.QUICK_MENU_STATE.ITEMS),
 		additionalInit: button => {
 			sc.QuickRingMenu.instance.items = button;
@@ -25,6 +26,7 @@ ig.module("nax-ccuilib.ui.quick-menu.default-widgets").defines(() => {
 		name: "analyze",
 		title: "Analysis",
 		id: sc.QUICK_MENU_STATE.CHECK,
+		keepPressed: true,
 		image: getImageDrawConfig(sc.QUICK_MENU_STATE.CHECK),
 		additionalInit: button => {
 			sc.QuickRingMenu.instance.check = button;
@@ -36,6 +38,7 @@ ig.module("nax-ccuilib.ui.quick-menu.default-widgets").defines(() => {
 		name: "party",
 		title: "Party",
 		id: sc.QUICK_MENU_STATE.PARTY,
+		keepPressed: true,
 		image: getImageDrawConfig(sc.QUICK_MENU_STATE.PARTY),
 		additionalInit: button => {
 			sc.QuickRingMenu.instance.party = button;
@@ -47,6 +50,7 @@ ig.module("nax-ccuilib.ui.quick-menu.default-widgets").defines(() => {
 		name: "map",
 		title: "Map",
 		id: sc.QUICK_MENU_STATE.MAP,
+		keepPressed: true,
 		image: getImageDrawConfig(sc.QUICK_MENU_STATE.MAP),
 		additionalInit: button => {
 			sc.QuickRingMenu.instance.map = button;
